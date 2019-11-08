@@ -571,8 +571,15 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
             std::wprintf(L"\t\tType: EventLog\n");
             std::shared_ptr<SourceEventLog> sourceEventLog = std::reinterpret_pointer_cast<SourceEventLog>(source);
 
-            std::wprintf(L"\t\teventFormatMultiLine: %ls\n", sourceEventLog->EventFormatMultiLine ? L"true" : L"false");
-            std::wprintf(L"\t\tstartAtOldestRecord: %ls\n", sourceEventLog->StartAtOldestRecord ? L"true" : L"false");
+            if (sourceEventLog->EventFormatMultiLine != nullptr)
+            {
+                std::wprintf(L"\t\teventFormatMultiLine: %ls\n", *sourceEventLog->EventFormatMultiLine ? L"true" : L"false");
+            }
+
+            if (sourceEventLog->StartAtOldestRecord != nullptr)
+            {
+                std::wprintf(L"\t\tstartAtOldestRecord: %ls\n", sourceEventLog->StartAtOldestRecord ? L"true" : L"false");
+            }
 
             std::wprintf(L"\t\tChannels (%d):\n", (int)sourceEventLog->Channels.size());
             for (auto channel : sourceEventLog->Channels)
@@ -603,7 +610,10 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
 
             std::shared_ptr<SourceETW> sourceETW = std::reinterpret_pointer_cast<SourceETW>(source);
 
-            std::wprintf(L"\t\teventFormatMultiLine: %ls\n", sourceETW->EventFormatMultiLine ? L"true" : L"false");
+            if (sourceETW->EventFormatMultiLine != nullptr)
+            {
+                std::wprintf(L"\t\teventFormatMultiLine: %ls\n", *sourceETW->EventFormatMultiLine ? L"true" : L"false");
+            }
 
             std::wprintf(L"\t\tProviders (%d):\n", (int)sourceETW->Providers.size());
             for (auto provider : sourceETW->Providers)

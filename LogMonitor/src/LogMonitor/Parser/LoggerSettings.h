@@ -7,34 +7,42 @@
 
 #define DEFAULT_CONFIG_FILENAME L"C:\\LogMonitor\\LogMonitorConfig.json"
 
-#define JSON_TAG_LOG_CONFIG L"LogConfig"
-#define JSON_TAG_SOURCES L"sources"
+#define JSON_TAG_LOG_CONFIG     L"LogConfig"
+#define JSON_TAG_SOURCES        L"sources"
 
 ///
 /// Valid source attributes
 ///
-#define JSON_TAG_TYPE L"type"
-#define JSON_TAG_FORMAT_MULTILINE L"eventFormatMultiLine"
-#define JSON_TAG_START_AT_OLDEST_RECORD L"startAtOldestRecord"
-#define JSON_TAG_CHANNELS L"channels"
-#define JSON_TAG_DIRECTORY L"directory"
-#define JSON_TAG_FILTER L"filter"
-#define JSON_TAG_INCLUDE_SUBDIRECTORIES L"includeSubdirectories"
-#define JSON_TAG_PROVIDERS L"providers"
+#define JSON_TAG_TYPE                       L"type"
+#define JSON_TAG_FORMAT_MULTILINE           L"eventFormatMultiLine"
+#define JSON_TAG_START_AT_OLDEST_RECORD     L"startAtOldestRecord"
+#define JSON_TAG_CHANNELS                   L"channels"
+#define JSON_TAG_DIRECTORY                  L"directory"
+#define JSON_TAG_FILTER                     L"filter"
+#define JSON_TAG_INCLUDE_SUBDIRECTORIES     L"includeSubdirectories"
+#define JSON_TAG_PROVIDERS                  L"providers"
 
 ///
 /// Valid channel attributes
 ///
-#define JSON_TAG_CHANNEL_NAME L"name"
-#define JSON_TAG_CHANNEL_LEVEL L"level"
+#define JSON_TAG_CHANNEL_NAME       L"name"
+#define JSON_TAG_CHANNEL_LEVEL      L"level"
 
 ///
 /// Valid ETW provider attributes
 ///
-#define JSON_TAG_PROVIDER_NAME L"providerName"
-#define JSON_TAG_PROVIDER_GUID L"providerGuid"
-#define JSON_TAG_PROVIDER_LEVEL L"level"
-#define JSON_TAG_KEYWORDS L"keywords"
+#define JSON_TAG_PROVIDER_NAME      L"providerName"
+#define JSON_TAG_PROVIDER_GUID      L"providerGuid"
+#define JSON_TAG_PROVIDER_LEVEL     L"level"
+#define JSON_TAG_KEYWORDS           L"keywords"
+
+///
+/// Default values
+///
+#define EVENT_MONITOR_MULTILINE_DEFAULT                 true
+#define EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT    false
+#define ETW_MONITOR_MULTILINE_DEFAULT                   true
+
 
 //
 // Define the AttributesMap, that is a map<wstring, void*> with case
@@ -200,8 +208,8 @@ class SourceEventLog : LogSource
 {
 public:
     std::vector<EventLogChannel> Channels;
-    bool EventFormatMultiLine = true;
-    bool StartAtOldestRecord = false;
+    std::shared_ptr<bool> EventFormatMultiLine = nullptr;
+    std::shared_ptr<bool> StartAtOldestRecord = nullptr;
 
     static bool Unwrap(
         _In_ AttributesMap& Attributes,
@@ -229,7 +237,7 @@ public:
         if (Attributes.find(JSON_TAG_FORMAT_MULTILINE) != Attributes.end()
             && Attributes[JSON_TAG_FORMAT_MULTILINE] != nullptr)
         {
-            NewSource.EventFormatMultiLine = *(bool*)Attributes[JSON_TAG_FORMAT_MULTILINE];
+            NewSource.EventFormatMultiLine = std::make_shared<bool>(*(bool*)Attributes[JSON_TAG_FORMAT_MULTILINE]);
         }
 
         //
@@ -238,7 +246,7 @@ public:
         if (Attributes.find(JSON_TAG_START_AT_OLDEST_RECORD) != Attributes.end()
             && Attributes[JSON_TAG_START_AT_OLDEST_RECORD] != nullptr)
         {
-            NewSource.StartAtOldestRecord = *(bool*)Attributes[JSON_TAG_START_AT_OLDEST_RECORD];
+            NewSource.StartAtOldestRecord = std::make_shared<bool>(*(bool*)Attributes[JSON_TAG_START_AT_OLDEST_RECORD]);
         }
 
         return true;
@@ -358,7 +366,7 @@ class SourceETW : LogSource
 {
 public:
     std::vector<ETWProvider> Providers;
-    bool EventFormatMultiLine = true;
+    std::shared_ptr<bool> EventFormatMultiLine = nullptr;
 
     static bool Unwrap(
         _In_ AttributesMap& Attributes,
@@ -386,7 +394,7 @@ public:
         if (Attributes.find(JSON_TAG_FORMAT_MULTILINE) != Attributes.end()
             && Attributes[JSON_TAG_FORMAT_MULTILINE] != nullptr)
         {
-            NewSource.EventFormatMultiLine = *(bool*)Attributes[JSON_TAG_FORMAT_MULTILINE];
+            NewSource.EventFormatMultiLine = std::make_shared<bool>(*(bool*)Attributes[JSON_TAG_FORMAT_MULTILINE]);
         }
 
 
@@ -400,4 +408,84 @@ public:
 typedef struct _LoggerSettings
 {
     std::vector<std::shared_ptr<LogSource> > Sources;
+
+    void Normalize()
+    {
+        std::vector<std::shared_ptr<LogSource> > NewSources;
+
+        std::shared_ptr<SourceEventLog> firstSourceEventLog(nullptr);
+        std::shared_ptr<SourceETW> firstSourceEtwLog(nullptr);
+
+        for (int i = 0; i < this->Sources.size(); i++)
+        {
+            const std::shared_ptr<LogSource> source = this->Sources[i];
+
+            switch (source->Type)
+            {
+                case LogSourceType::EventLog:
+                {
+                    std::shared_ptr<SourceEventLog> sourceEventLog = std::reinterpret_pointer_cast<SourceEventLog>(source);
+
+                    if (firstSourceEventLog == nullptr)
+                    {
+                        firstSourceEventLog = sourceEventLog;
+                        NewSources.push_back(std::reinterpret_pointer_cast<LogSource>(sourceEventLog));
+                    }
+                    else
+                    {
+                        for (auto channel : sourceEventLog->Channels)
+                        {
+                            firstSourceEventLog->Channels.push_back(channel);
+                        }
+
+                        if (sourceEventLog->EventFormatMultiLine != nullptr)
+                        {
+                            firstSourceEventLog->EventFormatMultiLine = sourceEventLog->EventFormatMultiLine;
+                        }
+
+                        if (sourceEventLog->StartAtOldestRecord != nullptr)
+                        {
+                            firstSourceEventLog->StartAtOldestRecord = sourceEventLog->StartAtOldestRecord;
+                        }
+                    }
+
+                    break;
+                }
+                case LogSourceType::File:
+                {
+                    std::shared_ptr<SourceFile> sourceFile = std::reinterpret_pointer_cast<SourceFile>(source);
+
+                    NewSources.push_back(std::reinterpret_pointer_cast<LogSource>(sourceFile));
+
+                    break;
+                }
+                case LogSourceType::ETW:
+                {
+                    std::shared_ptr<SourceETW> sourceETW = std::reinterpret_pointer_cast<SourceETW>(source);
+
+                    if (firstSourceEtwLog == nullptr)
+                    {
+                        firstSourceEtwLog = sourceETW;
+                        NewSources.push_back(std::reinterpret_pointer_cast<LogSource>(sourceETW));
+                    }
+                    else
+                    {
+                        for (auto provider : sourceETW->Providers)
+                        {
+                            firstSourceEtwLog->Providers.push_back(provider);
+                        }
+
+                        if (sourceETW->EventFormatMultiLine != nullptr)
+                        {
+                            firstSourceEtwLog->EventFormatMultiLine = sourceETW->EventFormatMultiLine;
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        this->Sources.swap(NewSources);
+    }
 } LoggerSettings;
