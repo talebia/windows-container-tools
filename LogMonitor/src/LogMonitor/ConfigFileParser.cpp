@@ -90,6 +90,8 @@ ReadLogConfigObject(
 
             if (_wcsnicmp(key.c_str(), JSON_TAG_SOURCES, _countof(JSON_TAG_SOURCES)) == 0)
             {
+                std::vector<std::shared_ptr<LogSource>> sources;
+
                 if (Parser.GetNextDataType() != JsonFileParser::DataType::Array)
                 {
                     logWriter.TraceError(L"Failed to parse configuration file. 'sources' attribute expected to be an array");
@@ -113,7 +115,7 @@ ReadLogConfigObject(
                     // instantiate it and add it to the end of the vector
                     //
                     if (ReadSourceAttributes(Parser, sourceAttributes)) {
-                        if (!AddNewSource(Parser, sourceAttributes, Config.Sources))
+                        if (!AddNewSource(Parser, sourceAttributes, sources))
                         {
                             logWriter.TraceWarning(L"Failed to parse configuration file. Error reading invalid source.");
                         }
@@ -131,6 +133,8 @@ ReadLogConfigObject(
                         }
                     }
                 } while (Parser.ParseNextArrayElement());
+
+                Config = LoggerSettings(sources);
             }
             else
             {
@@ -562,72 +566,59 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
     std::wprintf(L"LogConfig:\n");
     std::wprintf(L"\tsources:\n");
 
-    for (auto source : Config.Sources)
+    std::wprintf(L"\t\tType: EventLog\n");
+
+    if (Config.Sources.EventLog != nullptr)
     {
-        switch (source->Type)
+        if (Config.Sources.EventLog->EventFormatMultiLine != nullptr)
         {
-        case LogSourceType::EventLog:
-        {
-            std::wprintf(L"\t\tType: EventLog\n");
-            std::shared_ptr<SourceEventLog> sourceEventLog = std::reinterpret_pointer_cast<SourceEventLog>(source);
-
-            if (sourceEventLog->EventFormatMultiLine != nullptr)
-            {
-                std::wprintf(L"\t\teventFormatMultiLine: %ls\n", *sourceEventLog->EventFormatMultiLine ? L"true" : L"false");
-            }
-
-            if (sourceEventLog->StartAtOldestRecord != nullptr)
-            {
-                std::wprintf(L"\t\tstartAtOldestRecord: %ls\n", sourceEventLog->StartAtOldestRecord ? L"true" : L"false");
-            }
-
-            std::wprintf(L"\t\tChannels (%d):\n", (int)sourceEventLog->Channels.size());
-            for (auto channel : sourceEventLog->Channels)
-            {
-                std::wprintf(L"\t\t\tName: %ls\n", channel.Name.c_str());
-                std::wprintf(L"\t\t\tLevel: %d\n", (int)channel.Level);
-                std::wprintf(L"\n");
-            }
-            std::wprintf(L"\n");
-
-            break;
+            std::wprintf(L"\t\teventFormatMultiLine: %ls\n", *Config.Sources.EventLog->EventFormatMultiLine ? L"true" : L"false");
         }
-        case LogSourceType::File:
+
+        if (Config.Sources.EventLog->StartAtOldestRecord != nullptr)
         {
-            std::wprintf(L"\t\tType: File\n");
-            std::shared_ptr<SourceFile> sourceFile = std::reinterpret_pointer_cast<SourceFile>(source);
-
-            std::wprintf(L"\t\tDirectory: %ls\n", sourceFile->Directory.c_str());
-            std::wprintf(L"\t\tFilter: %ls\n", sourceFile->Filter.c_str());
-            std::wprintf(L"\t\tIncludeSubdirectories: %ls\n", sourceFile->IncludeSubdirectories ? L"true" : L"false");
-            std::wprintf(L"\n");
-
-            break;
+            std::wprintf(L"\t\tstartAtOldestRecord: %ls\n", *Config.Sources.EventLog->StartAtOldestRecord ? L"true" : L"false");
         }
-        case LogSourceType::ETW:
+
+        std::wprintf(L"\t\tChannels (%d):\n", (int)Config.Sources.EventLog->Channels.size());
+        for (auto channel : Config.Sources.EventLog->Channels)
         {
-            std::wprintf(L"\t\tType: ETW\n");
-
-            std::shared_ptr<SourceETW> sourceETW = std::reinterpret_pointer_cast<SourceETW>(source);
-
-            if (sourceETW->EventFormatMultiLine != nullptr)
-            {
-                std::wprintf(L"\t\teventFormatMultiLine: %ls\n", *sourceETW->EventFormatMultiLine ? L"true" : L"false");
-            }
-
-            std::wprintf(L"\t\tProviders (%d):\n", (int)sourceETW->Providers.size());
-            for (auto provider : sourceETW->Providers)
-            {
-                std::wprintf(L"\t\t\tProviderName: %ls\n", provider.ProviderName.c_str());
-                std::wprintf(L"\t\t\tProviderGuid: %ls\n", provider.ProviderGuidStr.c_str());
-                std::wprintf(L"\t\t\tLevel: %d\n", (int)provider.Level);
-                std::wprintf(L"\t\t\tKeywords: %llx\n", provider.Keywords);
-                std::wprintf(L"\n");
-            }
+            std::wprintf(L"\t\t\tName: %ls\n", channel.Name.c_str());
+            std::wprintf(L"\t\t\tLevel: %d\n", (int)channel.Level);
             std::wprintf(L"\n");
-
-            break;
         }
-        } // Switch
+        std::wprintf(L"\n");
+    }
+
+
+    for (auto logFile : Config.Sources.LogFiles)
+    {
+        std::wprintf(L"\t\tType: File\n");
+
+        std::wprintf(L"\t\tDirectory: %ls\n", logFile->Directory.c_str());
+        std::wprintf(L"\t\tFilter: %ls\n", logFile->Filter.c_str());
+        std::wprintf(L"\t\tIncludeSubdirectories: %ls\n", logFile->IncludeSubdirectories ? L"true" : L"false");
+        std::wprintf(L"\n");
+    }
+
+    if (Config.Sources.ETW != nullptr)
+    {
+        std::wprintf(L"\t\tType: ETW\n");
+
+        if (Config.Sources.ETW->EventFormatMultiLine != nullptr)
+        {
+            std::wprintf(L"\t\teventFormatMultiLine: %ls\n", *Config.Sources.ETW->EventFormatMultiLine ? L"true" : L"false");
+        }
+
+        std::wprintf(L"\t\tProviders (%d):\n", (int)Config.Sources.ETW->Providers.size());
+        for (auto provider : Config.Sources.ETW->Providers)
+        {
+            std::wprintf(L"\t\t\tProviderName: %ls\n", provider.ProviderName.c_str());
+            std::wprintf(L"\t\t\tProviderGuid: %ls\n", provider.ProviderGuidStr.c_str());
+            std::wprintf(L"\t\t\tLevel: %d\n", (int)provider.Level);
+            std::wprintf(L"\t\t\tKeywords: %llx\n", provider.Keywords);
+            std::wprintf(L"\n");
+        }
+        std::wprintf(L"\n");
     }
 }

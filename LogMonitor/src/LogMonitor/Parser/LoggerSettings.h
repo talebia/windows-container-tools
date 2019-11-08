@@ -407,18 +407,24 @@ public:
 ///
 typedef struct _LoggerSettings
 {
-    std::vector<std::shared_ptr<LogSource> > Sources;
-
-    void Normalize()
+    struct _Sources
     {
-        std::vector<std::shared_ptr<LogSource> > NewSources;
+        std::shared_ptr<SourceEventLog> EventLog = nullptr;
+        std::vector<std::shared_ptr<SourceFile>> LogFiles;
+        std::shared_ptr<SourceETW> ETW = nullptr;
+    } Sources;
 
-        std::shared_ptr<SourceEventLog> firstSourceEventLog(nullptr);
-        std::shared_ptr<SourceETW> firstSourceEtwLog(nullptr);
+    _LoggerSettings()
+    {
+        Sources.EventLog = nullptr;
+        Sources.ETW = nullptr;
+    }
 
-        for (int i = 0; i < this->Sources.size(); i++)
+    _LoggerSettings(const std::vector<std::shared_ptr<LogSource>>& NewSources)
+    {
+        for (int i = 0; i < NewSources.size(); i++)
         {
-            const std::shared_ptr<LogSource> source = this->Sources[i];
+            const std::shared_ptr<LogSource> source = NewSources[i];
 
             switch (source->Type)
             {
@@ -426,26 +432,25 @@ typedef struct _LoggerSettings
                 {
                     std::shared_ptr<SourceEventLog> sourceEventLog = std::reinterpret_pointer_cast<SourceEventLog>(source);
 
-                    if (firstSourceEventLog == nullptr)
+                    if (Sources.EventLog == nullptr)
                     {
-                        firstSourceEventLog = sourceEventLog;
-                        NewSources.push_back(std::reinterpret_pointer_cast<LogSource>(sourceEventLog));
+                        Sources.EventLog = std::make_shared<SourceEventLog>(*sourceEventLog);
                     }
                     else
                     {
                         for (auto channel : sourceEventLog->Channels)
                         {
-                            firstSourceEventLog->Channels.push_back(channel);
+                            Sources.EventLog->Channels.push_back(channel);
                         }
 
                         if (sourceEventLog->EventFormatMultiLine != nullptr)
                         {
-                            firstSourceEventLog->EventFormatMultiLine = sourceEventLog->EventFormatMultiLine;
+                            Sources.EventLog->EventFormatMultiLine = sourceEventLog->EventFormatMultiLine;
                         }
 
                         if (sourceEventLog->StartAtOldestRecord != nullptr)
                         {
-                            firstSourceEventLog->StartAtOldestRecord = sourceEventLog->StartAtOldestRecord;
+                            Sources.EventLog->StartAtOldestRecord = sourceEventLog->StartAtOldestRecord;
                         }
                     }
 
@@ -455,7 +460,7 @@ typedef struct _LoggerSettings
                 {
                     std::shared_ptr<SourceFile> sourceFile = std::reinterpret_pointer_cast<SourceFile>(source);
 
-                    NewSources.push_back(std::reinterpret_pointer_cast<LogSource>(sourceFile));
+                    Sources.LogFiles.push_back(sourceFile);
 
                     break;
                 }
@@ -463,21 +468,20 @@ typedef struct _LoggerSettings
                 {
                     std::shared_ptr<SourceETW> sourceETW = std::reinterpret_pointer_cast<SourceETW>(source);
 
-                    if (firstSourceEtwLog == nullptr)
+                    if (Sources.ETW == nullptr)
                     {
-                        firstSourceEtwLog = sourceETW;
-                        NewSources.push_back(std::reinterpret_pointer_cast<LogSource>(sourceETW));
+                        Sources.ETW = std::make_shared<SourceETW>(*sourceETW);;
                     }
                     else
                     {
                         for (auto provider : sourceETW->Providers)
                         {
-                            firstSourceEtwLog->Providers.push_back(provider);
+                            Sources.ETW->Providers.push_back(provider);
                         }
 
                         if (sourceETW->EventFormatMultiLine != nullptr)
                         {
-                            firstSourceEtwLog->EventFormatMultiLine = sourceETW->EventFormatMultiLine;
+                            Sources.ETW->EventFormatMultiLine = sourceETW->EventFormatMultiLine;
                         }
                     }
 
@@ -485,7 +489,5 @@ typedef struct _LoggerSettings
                 }
             }
         }
-
-        this->Sources.swap(NewSources);
     }
 } LoggerSettings;
