@@ -43,6 +43,7 @@
 #define EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT    false
 #define ETW_MONITOR_MULTILINE_DEFAULT                   true
 
+#define GET_VALUE_OR_DEFAULT(VAR, DEFAULT) (VAR != nullptr) ? *VAR : DEFAULT
 
 //
 // Define the AttributesMap, that is a map<wstring, void*> with case
@@ -313,6 +314,20 @@ public:
         }
 
         return true;
+    }
+
+    bool operator <(const SourceFile& Other) const
+    {
+        int cmpDirectoryResult = _wcsicmp(this->Directory.c_str(), Other.Directory.c_str());
+        if (cmpDirectoryResult != 0)
+        {
+            return cmpDirectoryResult < 0;
+        }
+
+        int cmpFilterResult = _wcsicmp(this->Filter.c_str(), Other.Filter.c_str());
+
+        return cmpFilterResult < 0 ||
+            (cmpFilterResult == 0 && this->IncludeSubdirectories < Other.IncludeSubdirectories);
     }
 };
 

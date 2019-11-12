@@ -276,9 +276,348 @@ MonitorsManager::GetOverlappedEvent()
     return m_overlappedEvent;
 }
 
-DWORD
+bool
 MonitorsManager::ReloadConfigFile()
 {
-    std::cout << "RELOADED" << std::endl;
-    return ERROR_SUCCESS;
+    bool success;
+
+    std::wifstream configFileStream(m_longDirectoryPath + L"\\" + m_longConfigFileName);
+    if (!configFileStream.is_open())
+    {
+        logWriter.TraceError(
+            Utility::FormatString(
+                L"Configuration file '%s' not found. Logs will not be monitored.", 
+                (m_longDirectoryPath + L"\\" + m_longConfigFileName).c_str()
+            ).c_str()
+        );
+
+        success = false;
+    }
+    else
+    {
+        std::shared_ptr<LoggerSettings> settings = make_shared<LoggerSettings>();
+
+        try
+        {
+            //
+            // Convert the document content to a string, to pass it to JsonFileParser constructor.
+            //
+            std::wstring configFileStr((std::istreambuf_iterator<wchar_t>(configFileStream)),
+                std::istreambuf_iterator<wchar_t>());
+
+            JsonFileParser jsonParser(configFileStr);
+
+            success = ReadConfigFile(jsonParser, *settings);
+        }
+        catch (std::exception & ex)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Failed to read json configuration file. %S", ex.what()).c_str()
+            );
+            success = false;
+        }
+        catch (...)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Failed to read json configuration file. Unknown error occurred.").c_str()
+            );
+            success = false;
+        }
+
+        if (success)
+        {
+            //
+            // Apply the changes to the monitors.
+            //
+            ApplyChangesToEventMonitor(settings);
+            ApplyChangesToLogFileMonitors(settings);
+            ApplyChangesToEtwMonitor(settings);
+
+            m_currentSettings = settings;
+        }
+        else
+        {
+            logWriter.TraceError(L"Invalid configuration file. Logs will not be monitored.");
+        }
+    }
+
+    return success;
+}
+
+void 
+MonitorsManager::ApplyChangesToEventMonitor(
+    _In_ std::shared_ptr<LoggerSettings> NewSettings
+    )
+{
+    bool stopMonitor = false;
+    bool startMonitor = false;
+
+    //
+    // 
+    //
+    if (m_eventMon == nullptr && NewSettings->Sources.EventLog != nullptr)
+    {
+        startMonitor = true;
+    }
+    else if (m_eventMon != nullptr && NewSettings->Sources.EventLog == nullptr)
+    {
+        stopMonitor = true;
+    }
+    else if (m_eventMon != nullptr && NewSettings->Sources.EventLog != nullptr)
+    {
+        std::shared_ptr<SourceEventLog> oldEventMonitor = m_currentSettings->Sources.EventLog;
+
+        bool oldEventFormatMultiLine = GET_VALUE_OR_DEFAULT(
+            oldEventMonitor->EventFormatMultiLine,
+            EVENT_MONITOR_MULTILINE_DEFAULT
+        );
+
+        bool oldEventMonStartAtOldestRecord = GET_VALUE_OR_DEFAULT(
+            oldEventMonitor->StartAtOldestRecord,
+            EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT
+        );
+
+        bool newEventFormatMultiLine = GET_VALUE_OR_DEFAULT(
+            NewSettings->Sources.EventLog->EventFormatMultiLine,
+            EVENT_MONITOR_MULTILINE_DEFAULT
+        );
+
+        bool newEventMonStartAtOldestRecord = GET_VALUE_OR_DEFAULT(
+            NewSettings->Sources.EventLog->StartAtOldestRecord, 
+            EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT
+        );
+
+        if (oldEventFormatMultiLine != newEventFormatMultiLine ||
+            oldEventMonStartAtOldestRecord != newEventMonStartAtOldestRecord)
+        {
+            stopMonitor = true;
+            startMonitor = true;
+        }
+        else
+        {
+            std::set<EventLogChannel> oldChannels(
+                oldEventMonitor->Channels.begin(),
+                oldEventMonitor->Channels.end()
+            );
+
+            std::set<EventLogChannel> newChannels(
+                NewSettings->Sources.EventLog->Channels.begin(),
+                NewSettings->Sources.EventLog->Channels.end()
+            );
+
+            if (oldChannels == newChannels)
+            {
+                stopMonitor = true;
+                startMonitor = true;
+            }
+        }
+    }
+
+
+    if (stopMonitor)
+    {
+        m_eventMon.reset();
+    }
+
+    if (startMonitor)
+    {
+        try
+        {
+            bool eventFormatMultiLine = GET_VALUE_OR_DEFAULT(
+                NewSettings->Sources.EventLog->EventFormatMultiLine,
+                EVENT_MONITOR_MULTILINE_DEFAULT
+            );
+
+            bool eventMonStartAtOldestRecord = GET_VALUE_OR_DEFAULT(
+                NewSettings->Sources.EventLog->StartAtOldestRecord,
+                EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT
+            );
+
+            m_eventMon = make_unique<EventMonitor>(NewSettings->Sources.EventLog->Channels,
+                eventFormatMultiLine,
+                eventMonStartAtOldestRecord);
+        }
+        catch (std::exception & ex)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Instantiation of a EventMonitor object failed. %S", ex.what()).c_str()
+            );
+        }
+        catch (...)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Instantiation of a EventMonitor object failed. Unknown error occurred.").c_str()
+            );
+        }
+    }
+}
+
+void 
+MonitorsManager::ApplyChangesToLogFileMonitors(
+    _In_ std::shared_ptr<LoggerSettings> NewSettings
+    )
+{
+    std::vector<UINT> newFileMonitorsIndexes;
+    std::vector<std::shared_ptr<LogFileMonitor>> newLogFileMonitors;
+
+    auto comp = [](std::pair<SourceFile, int> p1, std::pair<SourceFile, int> p2) {
+        return p1.first < p2.first; 
+    };
+    auto newLogFileSources = std::set<std::pair<SourceFile, int>, decltype(comp)>(comp);
+
+    for (int i = 0; i < NewSettings->Sources.LogFiles.size(); i++)
+    {
+        newLogFileSources.insert({ *NewSettings->Sources.LogFiles[i], i });
+    }
+
+    //
+    // Copy the file monitors that haven't changed.
+    //
+    for (int i = 0; i < fileMonitorsIndexes.size(); i++)
+    {
+        bool stopMonitor = false;
+        bool startMonitor = false;
+
+        std::shared_ptr<SourceFile> oldSourceFileMonitor = m_currentSettings->Sources.LogFiles[fileMonitorsIndexes[i]];
+        std::shared_ptr<LogFileMonitor> oldFileMonitor = m_logFileMonitors[i];
+
+        auto sameSourceFile = newLogFileSources.find({ *oldSourceFileMonitor, 0 });
+
+        if (sameSourceFile == newLogFileSources.end())
+        {
+            newLogFileMonitors.push_back(oldFileMonitor);
+            newFileMonitorsIndexes.push_back(sameSourceFile->second);
+
+            newLogFileSources.erase(sameSourceFile);
+        }
+    }
+
+    //
+    // Create the added file monitors.
+    //
+    for (auto pairSourceFile : newLogFileSources)
+    {
+        const SourceFile& sourceFile = pairSourceFile.first;
+        const UINT originalIndex = pairSourceFile.second;
+
+        try
+        {
+            std::shared_ptr<LogFileMonitor> logfileMon = make_shared<LogFileMonitor>(sourceFile.Directory, sourceFile.Filter, sourceFile.IncludeSubdirectories);
+            newLogFileMonitors.push_back(std::move(logfileMon));
+            newFileMonitorsIndexes.push_back(originalIndex);
+        }
+        catch (std::exception & ex)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Instantiation of a LogFileMonitor object failed for directory %ws. %S", sourceFile.Directory.c_str(), ex.what()).c_str()
+            );
+        }
+        catch (...)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Instantiation of a LogFileMonitor object failed for directory %ws. Unknown error occurred.", sourceFile.Directory.c_str()).c_str()
+            );
+        }
+    }
+
+    //
+    // Swa[ the new monitors array with the old one. The old file monitors that
+    // must be deleted are going to be deleted when newLogFileMonitors is out 
+    // of scope.
+    //
+    m_logFileMonitors.swap(newLogFileMonitors);
+    fileMonitorsIndexes.swap(newFileMonitorsIndexes);
+}
+
+
+void
+MonitorsManager::ApplyChangesToEtwMonitor(
+    _In_ std::shared_ptr<LoggerSettings> NewSettings
+)
+{
+    bool stopMonitor = false;
+    bool startMonitor = false;
+
+    //
+    // 
+    //
+    if (m_etwMon == nullptr && NewSettings->Sources.ETW != nullptr)
+    {
+        startMonitor = true;
+    }
+    else if (m_etwMon != nullptr && NewSettings->Sources.ETW == nullptr)
+    {
+        stopMonitor = true;
+    }
+    else if (m_etwMon != nullptr && NewSettings->Sources.ETW != nullptr)
+    {
+        std::shared_ptr<SourceETW> oldEventMonitor = m_currentSettings->Sources.ETW;
+
+        bool oldEventFormatMultiLine = GET_VALUE_OR_DEFAULT(
+            oldEventMonitor->EventFormatMultiLine,
+            ETW_MONITOR_MULTILINE_DEFAULT
+        );
+
+        bool newEventFormatMultiLine = GET_VALUE_OR_DEFAULT(
+            NewSettings->Sources.EventLog->EventFormatMultiLine,
+            ETW_MONITOR_MULTILINE_DEFAULT
+        );
+
+
+        if (oldEventFormatMultiLine != newEventFormatMultiLine )
+        {
+            stopMonitor = true;
+            startMonitor = true;
+        }
+        else
+        {
+            std::set<ETWProvider> oldProviders(
+                oldEventMonitor->Providers.begin(),
+                oldEventMonitor->Providers.end()
+            );
+
+            std::set<ETWProvider> newProviders(
+                NewSettings->Sources.ETW->Providers.begin(),
+                NewSettings->Sources.ETW->Providers.end()
+            );
+
+            if (oldProviders == newProviders)
+            {
+                stopMonitor = true;
+                startMonitor = true;
+            }
+        }
+    }
+
+
+    if (stopMonitor)
+    {
+        m_eventMon.reset();
+    }
+
+    if (startMonitor)
+    {
+        try
+        {
+            bool eventFormatMultiLine = GET_VALUE_OR_DEFAULT(
+                NewSettings->Sources.EventLog->EventFormatMultiLine,
+                ETW_MONITOR_MULTILINE_DEFAULT
+            );
+
+            m_etwMon = make_unique<EtwMonitor>(NewSettings->Sources.ETW->Providers,
+                eventFormatMultiLine);
+        }
+        catch (std::exception & ex)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Instantiation of a EtwMonitor object failed. %S", ex.what()).c_str()
+            );
+        }
+        catch (...)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Instantiation of a EtwMonitor object failed. Unknown error occurred.").c_str()
+            );
+        }
+    }
 }

@@ -22,13 +22,8 @@ using namespace std;
 LogWriter logWriter;
 
 HANDLE g_hStopEvent = INVALID_HANDLE_VALUE;
-HANDLE g_configFileDirHandle = INVALID_HANDLE_VALUE;
 
-std::shared_ptr<LoggerSettings> currentSettings;
 
-std::unique_ptr<EventMonitor> g_eventMon(nullptr);
-std::vector<std::shared_ptr<LogFileMonitor>> g_logfileMonitors;
-std::unique_ptr<EtwMonitor> g_etwMon(nullptr);
 
 void ControlHandle(_In_ DWORD dwCtrlType)
 {
@@ -64,156 +59,6 @@ void PrintUsage()
     wprintf(L"\tThis tool monitors Event log, ETW providers and log files and write the log entries\n");
     wprintf(L"\tto the console. The configuration of input log sources is specified in a Json file.\n");
     wprintf(L"\tfile.\n\n");
-}
-
-void
-ApplySettingsChangesToMonitors(
-    _In_ std::shared_ptr<LoggerSettings> NewSettings
-    )
-{
-    //
-    // Event Log
-    //
-    if (NewSettings->Sources.EventLog != nullptr && !NewSettings->Sources.EventLog->Channels.empty())
-    {
-        try
-        {
-            bool eventFormatMultiLine = NewSettings->Sources.EventLog->EventFormatMultiLine != nullptr ?
-                *NewSettings->Sources.EventLog->EventFormatMultiLine :
-                EVENT_MONITOR_MULTILINE_DEFAULT;
-
-            bool eventMonStartAtOldestRecord = NewSettings->Sources.EventLog->StartAtOldestRecord != nullptr ?
-                *NewSettings->Sources.EventLog->StartAtOldestRecord :
-                EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT;
-
-            g_eventMon = make_unique<EventMonitor>(NewSettings->Sources.EventLog->Channels,
-                eventFormatMultiLine,
-                eventMonStartAtOldestRecord);
-        }
-        catch (std::exception & ex)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Instantiation of a EventMonitor object failed. %S", ex.what()).c_str()
-            );
-        }
-        catch (...)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Instantiation of a EventMonitor object failed. Unknown error occurred.").c_str()
-            );
-        }
-    }
-
-    //
-    // Log File
-    //
-    for (auto logFileSource : NewSettings->Sources.LogFiles)
-    {
-        try
-        {
-            std::shared_ptr<LogFileMonitor> logfileMon = make_shared<LogFileMonitor>(logFileSource->Directory, logFileSource->Filter, logFileSource->IncludeSubdirectories);
-            g_logfileMonitors.push_back(std::move(logfileMon));
-        }
-        catch (std::exception & ex)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Instantiation of a LogFileMonitor object failed for directory %ws. %S", logFileSource->Directory.c_str(), ex.what()).c_str()
-            );
-        }
-        catch (...)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Instantiation of a LogFileMonitor object failed for directory %ws. Unknown error occurred.", logFileSource->Directory.c_str()).c_str()
-            );
-        }
-    }
-
-    //
-    // ETW
-    //
-    if (NewSettings->Sources.ETW != nullptr && !NewSettings->Sources.ETW->Providers.empty())
-    {
-        try
-        {
-            bool eventFormatMultiLine = NewSettings->Sources.ETW->EventFormatMultiLine != nullptr ?
-                *NewSettings->Sources.ETW->EventFormatMultiLine :
-                ETW_MONITOR_MULTILINE_DEFAULT;
-
-            g_etwMon = make_unique<EtwMonitor>(NewSettings->Sources.ETW->Providers,
-                eventFormatMultiLine);
-        }
-        catch (std::exception & ex)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Instantiation of a EventMonitor object failed. %S", ex.what()).c_str()
-            );
-        }
-        catch (...)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Instantiation of a EventMonitor object failed. Unknown error occurred.").c_str()
-            );
-        }
-    }
-}
-
-bool HandleConfigFileModification(_In_ const PWCHAR ConfigFileName)
-{
-    bool success;
-
-    std::wifstream configFileStream(ConfigFileName);
-    if (!configFileStream.is_open())
-    {
-        logWriter.TraceError(
-            Utility::FormatString(L"Configuration file '%s' not found. Logs will not be monitored.", ConfigFileName
-            ).c_str()
-        );
-
-        success = false;
-    }
-    else
-    {
-        std::shared_ptr<LoggerSettings> settings = make_shared<LoggerSettings>();
-
-        try
-        {
-            //
-            // Convert the document content to a string, to pass it to JsonFileParser constructor.
-            //
-            std::wstring configFileStr((std::istreambuf_iterator<wchar_t>(configFileStream)),
-                std::istreambuf_iterator<wchar_t>());
-
-            JsonFileParser jsonParser(configFileStr);
-
-            success = ReadConfigFile(jsonParser, *settings);
-        }
-        catch (std::exception & ex)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Failed to read json configuration file. %S", ex.what()).c_str()
-            );
-            success = false;
-        }
-        catch (...)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Failed to read json configuration file. Unknown error occurred.").c_str()
-            );
-            success = false;
-        }
-
-        if (success)
-        {
-            ApplySettingsChangesToMonitors(settings);
-            currentSettings = settings;
-        }
-        else
-        {
-            logWriter.TraceError(L"Invalid configuration file.");
-        }
-    }
-
-    return success;
 }
 
 int __cdecl wmain(int argc, WCHAR *argv[])
@@ -258,9 +103,8 @@ int __cdecl wmain(int argc, WCHAR *argv[])
 
     }
 
-    HandleConfigFileModification(configFileName);
-
     DWORD status = MonitorsManager::Initialize(configFileName);
+    /// TODO: remove this if
     if (status != ERROR_SUCCESS)
     {
         return status;
