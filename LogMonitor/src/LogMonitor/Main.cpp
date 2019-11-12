@@ -17,13 +17,9 @@ using namespace std;
 #define ARGV_OPTION_HELP1 L"/?"
 #define ARGV_OPTION_HELP2 L"--help"
 
-
-
 LogWriter logWriter;
 
 HANDLE g_hStopEvent = INVALID_HANDLE_VALUE;
-
-
 
 void ControlHandle(_In_ DWORD dwCtrlType)
 {
@@ -104,11 +100,6 @@ int __cdecl wmain(int argc, WCHAR *argv[])
     }
 
     DWORD status = MonitorsManager::Initialize(configFileName);
-    /// TODO: remove this if
-    if (status != ERROR_SUCCESS)
-    {
-        return status;
-    }
 
     //
     // Create the child process. 
@@ -130,11 +121,17 @@ int __cdecl wmain(int argc, WCHAR *argv[])
     {
         bool bStop = false;
         HANDLE events[2] = { g_hStopEvent };
-        events[1] = MonitorsManager::GetInstance()->GetOverlappedEvent();
+        int eventsCount = 1;
+
+        if (MonitorsManager::GetInstance() != nullptr)
+        {
+            eventsCount++;
+            events[1] = MonitorsManager::GetInstance()->GetOverlappedEvent();
+        }
 
         while (!bStop)
         {
-            DWORD waitResult = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+            DWORD waitResult = WaitForMultipleObjects(eventsCount, events, FALSE, INFINITE);
 
             switch (waitResult)
             {
