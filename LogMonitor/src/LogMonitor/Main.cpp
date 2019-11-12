@@ -22,6 +22,7 @@ using namespace std;
 LogWriter logWriter;
 
 HANDLE g_hStopEvent = INVALID_HANDLE_VALUE;
+HANDLE g_configFileDirHandle = INVALID_HANDLE_VALUE;
 
 std::shared_ptr<LoggerSettings> currentSettings;
 
@@ -65,82 +66,27 @@ void PrintUsage()
     wprintf(L"\tfile.\n\n");
 }
 
-std::shared_ptr<LoggerSettings> 
-GetChangedSettings(
-    _In_ std::shared_ptr<LoggerSettings> CurrentSettings,
+void
+ApplySettingsChangesToMonitors(
     _In_ std::shared_ptr<LoggerSettings> NewSettings
     )
 {
-    if (CurrentSettings == nullptr)
-    {
-        return NewSettings;
-    }
-
-}
-
-bool StartMonitors(_In_ const PWCHAR ConfigFileName)
-{
-    bool success;
-
-    std::wifstream configFileStream(ConfigFileName);
-    if (!configFileStream.is_open())
-    {
-        logWriter.TraceError(
-            Utility::FormatString(L"Configuration file '%s' not found. Logs will not be monitored.", ConfigFileName
-            ).c_str()
-        );
-
-        return false;
-    }
-
-    std::shared_ptr<LoggerSettings> settings = make_shared<LoggerSettings>();
-
-    try
-    {
-        //
-        // Convert the document content to a string, to pass it to JsonFileParser constructor.
-        //
-        std::wstring configFileStr((std::istreambuf_iterator<wchar_t>(configFileStream)),
-            std::istreambuf_iterator<wchar_t>());
-
-        JsonFileParser jsonParser(configFileStr);
-
-        success = ReadConfigFile(jsonParser, *settings);
-    }
-    catch (std::exception& ex)
-    {
-        logWriter.TraceError(
-            Utility::FormatString(L"Failed to read json configuration file. %S", ex.what()).c_str()
-        );
-        success = false;
-    }
-    catch (...)
-    {
-        logWriter.TraceError(
-            Utility::FormatString(L"Failed to read json configuration file. Unknown error occurred.").c_str()
-        );
-        success = false;
-    }
-
-    if (!success)
-    {
-        logWriter.TraceError(L"Invalid configuration file.");
-        return success;
-    }
-
-    if (settings->Sources.EventLog != nullptr && !settings->Sources.EventLog->Channels.empty())
+    //
+    // Event Log
+    //
+    if (NewSettings->Sources.EventLog != nullptr && !NewSettings->Sources.EventLog->Channels.empty())
     {
         try
         {
-            bool eventFormatMultiLine = settings->Sources.EventLog->EventFormatMultiLine != nullptr ?
-                *settings->Sources.EventLog->EventFormatMultiLine :
+            bool eventFormatMultiLine = NewSettings->Sources.EventLog->EventFormatMultiLine != nullptr ?
+                *NewSettings->Sources.EventLog->EventFormatMultiLine :
                 EVENT_MONITOR_MULTILINE_DEFAULT;
 
-            bool eventMonStartAtOldestRecord = settings->Sources.EventLog->StartAtOldestRecord != nullptr ?
-                *settings->Sources.EventLog->StartAtOldestRecord :
+            bool eventMonStartAtOldestRecord = NewSettings->Sources.EventLog->StartAtOldestRecord != nullptr ?
+                *NewSettings->Sources.EventLog->StartAtOldestRecord :
                 EVENT_MONITOR_START_AT_OLDEST_RECORD_DEFAULT;
 
-            g_eventMon = make_unique<EventMonitor>(settings->Sources.EventLog->Channels,
+            g_eventMon = make_unique<EventMonitor>(NewSettings->Sources.EventLog->Channels,
                 eventFormatMultiLine,
                 eventMonStartAtOldestRecord);
         }
@@ -158,14 +104,17 @@ bool StartMonitors(_In_ const PWCHAR ConfigFileName)
         }
     }
 
-    for (auto logFileSource : settings->Sources.LogFiles)
+    //
+    // Log File
+    //
+    for (auto logFileSource : NewSettings->Sources.LogFiles)
     {
         try
         {
             std::shared_ptr<LogFileMonitor> logfileMon = make_shared<LogFileMonitor>(logFileSource->Directory, logFileSource->Filter, logFileSource->IncludeSubdirectories);
             g_logfileMonitors.push_back(std::move(logfileMon));
         }
-        catch (std::exception& ex)
+        catch (std::exception & ex)
         {
             logWriter.TraceError(
                 Utility::FormatString(L"Instantiation of a LogFileMonitor object failed for directory %ws. %S", logFileSource->Directory.c_str(), ex.what()).c_str()
@@ -179,15 +128,18 @@ bool StartMonitors(_In_ const PWCHAR ConfigFileName)
         }
     }
 
-    if (settings->Sources.ETW != nullptr && !settings->Sources.ETW->Providers.empty())
+    //
+    // ETW
+    //
+    if (NewSettings->Sources.ETW != nullptr && !NewSettings->Sources.ETW->Providers.empty())
     {
         try
         {
-            bool eventFormatMultiLine = settings->Sources.ETW->EventFormatMultiLine != nullptr ?
-                *settings->Sources.ETW->EventFormatMultiLine :
+            bool eventFormatMultiLine = NewSettings->Sources.ETW->EventFormatMultiLine != nullptr ?
+                *NewSettings->Sources.ETW->EventFormatMultiLine :
                 ETW_MONITOR_MULTILINE_DEFAULT;
 
-            g_etwMon = make_unique<EtwMonitor>(settings->Sources.ETW->Providers,
+            g_etwMon = make_unique<EtwMonitor>(NewSettings->Sources.ETW->Providers,
                 eventFormatMultiLine);
         }
         catch (std::exception & ex)
@@ -203,15 +155,65 @@ bool StartMonitors(_In_ const PWCHAR ConfigFileName)
             );
         }
     }
-
-    return success;
 }
 
-void StopMonitors()
+bool HandleConfigFileModification(_In_ const PWCHAR ConfigFileName)
 {
-    g_eventMon.reset(nullptr);
-    g_logfileMonitors.clear();
-    g_etwMon.reset(nullptr);
+    bool success;
+
+    std::wifstream configFileStream(ConfigFileName);
+    if (!configFileStream.is_open())
+    {
+        logWriter.TraceError(
+            Utility::FormatString(L"Configuration file '%s' not found. Logs will not be monitored.", ConfigFileName
+            ).c_str()
+        );
+
+        success = false;
+    }
+    else
+    {
+        std::shared_ptr<LoggerSettings> settings = make_shared<LoggerSettings>();
+
+        try
+        {
+            //
+            // Convert the document content to a string, to pass it to JsonFileParser constructor.
+            //
+            std::wstring configFileStr((std::istreambuf_iterator<wchar_t>(configFileStream)),
+                std::istreambuf_iterator<wchar_t>());
+
+            JsonFileParser jsonParser(configFileStr);
+
+            success = ReadConfigFile(jsonParser, *settings);
+        }
+        catch (std::exception & ex)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Failed to read json configuration file. %S", ex.what()).c_str()
+            );
+            success = false;
+        }
+        catch (...)
+        {
+            logWriter.TraceError(
+                Utility::FormatString(L"Failed to read json configuration file. Unknown error occurred.").c_str()
+            );
+            success = false;
+        }
+
+        if (success)
+        {
+            ApplySettingsChangesToMonitors(settings);
+            currentSettings = settings;
+        }
+        else
+        {
+            logWriter.TraceError(L"Invalid configuration file.");
+        }
+    }
+
+    return success;
 }
 
 int __cdecl wmain(int argc, WCHAR *argv[])
@@ -256,7 +258,13 @@ int __cdecl wmain(int argc, WCHAR *argv[])
 
     }
 
-    StartMonitors(configFileName);
+    HandleConfigFileModification(configFileName);
+
+    DWORD status = MonitorsManager::Initialize(configFileName);
+    if (status != ERROR_SUCCESS)
+    {
+        return status;
+    }
 
     //
     // Create the child process. 
@@ -276,19 +284,35 @@ int __cdecl wmain(int argc, WCHAR *argv[])
     }
     else
     {
-        DWORD waitResult = WaitForSingleObjectEx(g_hStopEvent, INFINITE, TRUE);
+        bool bStop = false;
+        HANDLE events[2] = { g_hStopEvent };
+        events[1] = MonitorsManager::GetInstance()->GetOverlappedEvent();
 
-        switch (waitResult)
+        while (!bStop)
         {
-            case WAIT_OBJECT_0:
-            case WAIT_IO_COMPLETION:
-                break;
+            DWORD waitResult = WaitForMultipleObjects(2, events, FALSE, INFINITE);
 
-            default:
-                logWriter.TraceError(
-                    Utility::FormatString(L"Log monitor wait failed. Error: %d", GetLastError()).c_str()
-                );
-                break;
+            switch (waitResult)
+            {
+                case WAIT_OBJECT_0:
+                case WAIT_IO_COMPLETION:
+                    bStop = true;
+                    break;
+
+                case WAIT_OBJECT_0 + 1:
+                    if (MonitorsManager::GetInstance()->ConfigFileChanged())
+                    {
+                        MonitorsManager::GetInstance()->ReloadConfigFile();
+                    }
+                    break;
+
+                default:
+                    logWriter.TraceError(
+                        Utility::FormatString(L"Log monitor wait failed. Error: %d", GetLastError()).c_str()
+                    );
+                    bStop = true;
+                    break;
+            }
         }
     }
 

@@ -56,6 +56,7 @@
 #include "EtwMonitor.h"
 #include "EventMonitor.h"
 #include "LogFileMonitor.h"
+#include "MonitorsManager.h"
 #include "ProcessMonitor.h"
 
 #endif //PCH_H

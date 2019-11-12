@@ -199,6 +199,17 @@ typedef struct _EventLogChannel
 
         return false;
     }
+
+    bool operator <(const _EventLogChannel& Other) const
+    {
+        int cmpNameResult = _wcsicmp(this->Name.c_str(), Other.Name.c_str());
+        return cmpNameResult < 0 || (cmpNameResult == 0 && this->Level < Other.Level);
+    }
+
+    bool operator ==(const _EventLogChannel& Other) const
+    {
+        return _wcsicmp(this->Name.c_str(), Other.Name.c_str()) == 0 && this->Level == Other.Level;
+    }
 } EventLogChannel;
 
 ///
@@ -357,6 +368,28 @@ public:
 
         return false;
     }
+
+    bool operator <(const ETWProvider& Other) const
+    {
+        int cmpGuidResult = memcmp(&ProviderGuid, &Other.ProviderGuid, sizeof(ProviderGuid));
+        if (cmpGuidResult != 0)
+        {
+            return cmpGuidResult < 0;
+        }
+
+        int cmpNameResult = _wcsicmp(this->ProviderGuidStr.c_str(), Other.ProviderGuidStr.c_str());
+        return cmpNameResult < 0 || 
+            (cmpNameResult == 0 && this->Level < Other.Level) ||
+            (cmpNameResult == 0 && this->Level == Other.Level && this->Keywords < Other.Keywords);
+    }
+
+    bool operator ==(const ETWProvider& Other) const
+    {
+        return memcmp(&ProviderGuid, &Other.ProviderGuid, sizeof(ProviderGuid)) == 0 &&
+            _wcsicmp(this->ProviderGuidStr.c_str(), Other.ProviderGuidStr.c_str()) == 0 &&
+            this->Level == Other.Level &&
+            this->Keywords == Other.Keywords;
+    }
 };
 
 ///
@@ -422,10 +455,8 @@ typedef struct _LoggerSettings
 
     _LoggerSettings(const std::vector<std::shared_ptr<LogSource>>& NewSources)
     {
-        for (int i = 0; i < NewSources.size(); i++)
+        for(auto source : NewSources)
         {
-            const std::shared_ptr<LogSource> source = NewSources[i];
-
             switch (source->Type)
             {
                 case LogSourceType::EventLog:

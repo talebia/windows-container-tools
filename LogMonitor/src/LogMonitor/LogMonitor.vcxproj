@@ -157,6 +157,7 @@
     <ClInclude Include="EventMonitor.h" />
     <ClInclude Include="LogFileMonitor.h" />
     <ClInclude Include="LogWriter.h" />
+    <ClInclude Include="MonitorsManager.h" />
     <ClInclude Include="Parser\ConfigFileParser.h" />
     <ClInclude Include="Parser\JsonFileParser.h" />
     <ClInclude Include="Parser\LoggerSettings.h" />
@@ -173,6 +174,7 @@
     <ClCompile Include="JsonFileParser.cpp" />
     <ClCompile Include="LogFileMonitor.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MonitorsManager.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
