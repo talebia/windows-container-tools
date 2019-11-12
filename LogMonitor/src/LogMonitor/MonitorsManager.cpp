@@ -77,19 +77,28 @@ MonitorsManager::MonitorsManager(
         throw std::system_error(std::error_code(status, std::system_category()), "SetDirectoryChangesListener");
     }
 
-    std::wstring shortConfigFilePath = Utility::GetShortPath(ConfigFileName);
 
-    //
-    // Get the directory path, in short format.
-    //
-    std::wstring shortDirectoryPath = shortConfigFilePath;
-    PathRemoveFileSpecW(&shortDirectoryPath[0]);
-    shortDirectoryPath.resize(wcslen(shortDirectoryPath.c_str()));
+    DWORD dwAttrib = GetFileAttributes(ConfigFileName.c_str());
 
-    //
-    // Get the filename of the config file, without the directory part.
-    //
-    m_shortConfigFileName = shortConfigFilePath.substr(shortDirectoryPath.size() + 1);
+    if (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
+    {
+        std::wstring shortConfigFilePath = Utility::GetShortPath(ConfigFileName);
+
+        //
+        // Get the directory path, in short format.
+        //
+        std::wstring shortDirectoryPath = shortConfigFilePath;
+        PathRemoveFileSpecW(&shortDirectoryPath[0]);
+        shortDirectoryPath.resize(wcslen(shortDirectoryPath.c_str()));
+
+        //
+        // Get the filename of the config file, without the directory part.
+        //
+        m_shortConfigFileName = shortConfigFilePath.substr(shortDirectoryPath.size() + 1);
+
+        ReloadConfigFile();
+    }
+
 }
 
 MonitorsManager::~MonitorsManager()
@@ -405,7 +414,7 @@ MonitorsManager::ApplyChangesToEventMonitor(
                 NewSettings->Sources.EventLog->Channels.end()
             );
 
-            if (oldChannels == newChannels)
+            if (oldChannels != newChannels)
             {
                 stopMonitor = true;
                 startMonitor = true;
@@ -483,7 +492,7 @@ MonitorsManager::ApplyChangesToLogFileMonitors(
 
         auto sameSourceFile = newLogFileSources.find({ *oldSourceFileMonitor, 0 });
 
-        if (sameSourceFile == newLogFileSources.end())
+        if (sameSourceFile != newLogFileSources.end())
         {
             newLogFileMonitors.push_back(oldFileMonitor);
             newFileMonitorsIndexes.push_back(sameSourceFile->second);
@@ -551,15 +560,15 @@ MonitorsManager::ApplyChangesToEtwMonitor(
     }
     else if (m_etwMon != nullptr && NewSettings->Sources.ETW != nullptr)
     {
-        std::shared_ptr<SourceETW> oldEventMonitor = m_currentSettings->Sources.ETW;
+        std::shared_ptr<SourceETW> oldEtwMonitor = m_currentSettings->Sources.ETW;
 
         bool oldEventFormatMultiLine = GET_VALUE_OR_DEFAULT(
-            oldEventMonitor->EventFormatMultiLine,
+            oldEtwMonitor->EventFormatMultiLine,
             ETW_MONITOR_MULTILINE_DEFAULT
         );
 
         bool newEventFormatMultiLine = GET_VALUE_OR_DEFAULT(
-            NewSettings->Sources.EventLog->EventFormatMultiLine,
+            NewSettings->Sources.ETW->EventFormatMultiLine,
             ETW_MONITOR_MULTILINE_DEFAULT
         );
 
@@ -572,8 +581,8 @@ MonitorsManager::ApplyChangesToEtwMonitor(
         else
         {
             std::set<ETWProvider> oldProviders(
-                oldEventMonitor->Providers.begin(),
-                oldEventMonitor->Providers.end()
+                oldEtwMonitor->Providers.begin(),
+                oldEtwMonitor->Providers.end()
             );
 
             std::set<ETWProvider> newProviders(
@@ -581,7 +590,7 @@ MonitorsManager::ApplyChangesToEtwMonitor(
                 NewSettings->Sources.ETW->Providers.end()
             );
 
-            if (oldProviders == newProviders)
+            if (oldProviders != newProviders)
             {
                 stopMonitor = true;
                 startMonitor = true;
@@ -600,7 +609,7 @@ MonitorsManager::ApplyChangesToEtwMonitor(
         try
         {
             bool eventFormatMultiLine = GET_VALUE_OR_DEFAULT(
-                NewSettings->Sources.EventLog->EventFormatMultiLine,
+                NewSettings->Sources.ETW->EventFormatMultiLine,
                 ETW_MONITOR_MULTILINE_DEFAULT
             );
 

@@ -480,14 +480,7 @@ EtwMonitor::StartTraceSession(
         // If the session is active, is necessary to restart it, because the
         // configuration could change, and different providers could be listened.
         //
-        status = ::StopTrace(TraceSessionHandle, mySessionName.c_str(), petpStop);
-        if (status != ERROR_SUCCESS)
-        {
-            logWriter.TraceError(
-                Utility::FormatString(L"Failed to stop ETW trace. Error: %lu", status).c_str()
-            );
-            return status;
-        }
+        ::StopTrace(TraceSessionHandle, mySessionName.c_str(), petpStop);
 
         status = ::StartTrace(&TraceSessionHandle, mySessionName.c_str(), petp);
     }
