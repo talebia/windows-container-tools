@@ -743,7 +743,7 @@ LogFileMonitor::InitializeDirectoryChangeEventsQueue()
 
         m_readLogFilesFromStart = false;
 
-        for (auto file: logFiles)
+        for (const auto& file: logFiles)
         {
             const std::wstring& fileName = file.first;
             const FILE_ID_INFO& fileId = file.second;
@@ -1063,13 +1063,11 @@ LogFileMonitor::LogFilesChangeHandler()
 
             case WAIT_OBJECT_0 + 2:
             {
-                map<std::wstring, std::shared_ptr<LogFileInformation>>::iterator it;
-
                 //wprintf(L"LogFilesChangeHandler: Timer event\n");
 
-                for ( it = m_logFilesInformation.begin(); it != m_logFilesInformation.end(); it++ )
+                for (const auto& file : m_logFilesInformation)
                 {
-                    ReadLogFile(it->second);
+                    ReadLogFile(file.second);
                 }
 
                 if (!SetWaitableTimer(timerEvent, &liDueTime, 0, NULL, NULL, 0))
@@ -1284,7 +1282,7 @@ LogFileMonitor::LogFileRenameNewEventHandler(
 
             GetFilesInDirectory(fullLongPath, m_filter, logFiles, m_includeSubfolders);
 
-            for (auto file : logFiles)  
+            for (const auto& file : logFiles)  
             {
                 const std::wstring& fileName = file.first;
                 const FILE_ID_INFO& fileId = file.second;
@@ -1412,7 +1410,7 @@ LogFileMonitor::LogFileReInitEventHandler(
 
     if (status == ERROR_SUCCESS)
     {
-        for (auto file: logFiles)
+        for (const auto& file: logFiles)
         {
             const std::wstring& fileName = file.first;
             const FILE_ID_INFO& fileId = file.second;
@@ -1459,9 +1457,9 @@ LogFileMonitor::LogFileReInitEventHandler(
 
     //wprintf(L"LogFilesChangeHandler: Timer event\n");
 
-    for ( it = m_logFilesInformation.begin(); it != m_logFilesInformation.end(); it++ )
+    for (const auto& file : m_logFilesInformation)
     {
-        ReadLogFile(it->second);
+        ReadLogFile(file.second);
     }
 
     return status;

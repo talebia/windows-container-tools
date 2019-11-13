@@ -300,6 +300,17 @@ MonitorsManager::ReloadConfigFile()
             ).c_str()
         );
 
+        //
+        // Stop all monitors, passing empty settings.
+        //
+        std::shared_ptr<LoggerSettings> emptySettings = make_shared<LoggerSettings>();
+
+        ApplyChangesToEventMonitor(emptySettings);
+        ApplyChangesToLogFileMonitors(emptySettings);
+        ApplyChangesToEtwMonitor(emptySettings);
+
+        m_currentSettings = emptySettings;
+
         success = false;
     }
     else
@@ -504,7 +515,7 @@ MonitorsManager::ApplyChangesToLogFileMonitors(
     //
     // Create the added file monitors.
     //
-    for (auto pairSourceFile : newLogFileSources)
+    for (const auto& pairSourceFile : newLogFileSources)
     {
         const SourceFile& sourceFile = pairSourceFile.first;
         const UINT originalIndex = pairSourceFile.second;

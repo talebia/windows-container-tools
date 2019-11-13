@@ -125,7 +125,7 @@ ReadLogConfigObject(
                         logWriter.TraceWarning(L"Failed to parse configuration file. Error retrieving source attributes. Invalid source");
                     }
 
-                    for (auto attributePair : sourceAttributes)
+                    for (auto& attributePair : sourceAttributes)
                     {
                         if (attributePair.second != nullptr)
                         {
@@ -581,7 +581,7 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
         }
 
         std::wprintf(L"\t\tChannels (%d):\n", (int)Config.Sources.EventLog->Channels.size());
-        for (auto channel : Config.Sources.EventLog->Channels)
+        for (const auto& channel : Config.Sources.EventLog->Channels)
         {
             std::wprintf(L"\t\t\tName: %ls\n", channel.Name.c_str());
             std::wprintf(L"\t\t\tLevel: %d\n", (int)channel.Level);
@@ -591,7 +591,7 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
     }
 
 
-    for (auto logFile : Config.Sources.LogFiles)
+    for (const auto& logFile : Config.Sources.LogFiles)
     {
         std::wprintf(L"\t\tType: File\n");
 
@@ -611,7 +611,7 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
         }
 
         std::wprintf(L"\t\tProviders (%d):\n", (int)Config.Sources.ETW->Providers.size());
-        for (auto provider : Config.Sources.ETW->Providers)
+        for (const auto& provider : Config.Sources.ETW->Providers)
         {
             std::wprintf(L"\t\t\tProviderName: %ls\n", provider.ProviderName.c_str());
             std::wprintf(L"\t\t\tProviderGuid: %ls\n", provider.ProviderGuidStr.c_str());
