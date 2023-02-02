@@ -552,6 +552,26 @@ EventMonitor::PrintEvent(
 
             if (status == ERROR_SUCCESS)
             {
+                source = L"EventLog";
+                eventTime = Utility::FileTimeToString(fileTimeCreated).c_str();
+                eventChannel = channelName.c_str();
+                eventLevel = c_LevelToString[static_cast<UINT8>(level)].c_str();
+                eventId = eventId;
+                eventMessage = (LPWSTR)(&m_eventMessageBuffer[0]);
+
+                //check log format as specified in log file
+                LoggerSettings settings;
+                std::wstring logFormat = settings.LogFormat;
+
+                //if format is JSON,
+
+
+                //if format is XML
+
+
+                //if format is line
+                
+
                 std::wstring formattedEvent = Utility::FormatString(
                     L"<Source>EventLog</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
                     Utility::FileTimeToString(fileTimeCreated).c_str(),

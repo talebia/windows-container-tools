@@ -9,6 +9,8 @@
 
 #define JSON_TAG_LOG_CONFIG L"LogConfig"
 #define JSON_TAG_SOURCES L"sources"
+#define JSON_TAG_LOG_FORMAT L"logFormat"
+#define JSON_TAG_LINE_LOG_FORMAT L"lineLogformat"
 
 ///
 /// Valid source attributes
@@ -411,4 +413,6 @@ public:
 typedef struct _LoggerSettings
 {
     std::vector<std::shared_ptr<LogSource> > Sources;
+    std::wstring LogFormat;
+    std::wstring LineLogformat;
 } LoggerSettings;

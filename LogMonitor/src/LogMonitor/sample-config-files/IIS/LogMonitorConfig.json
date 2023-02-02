@@ -39,6 +39,8 @@
           }
         ]
       }
-    ]
+    ],
+	"logFormat": "line",
+	"lineLogformat": "[%TimeStamp%] [%Severity%] %Message%"	
   }
 }

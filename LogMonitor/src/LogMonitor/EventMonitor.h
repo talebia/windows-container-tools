@@ -26,6 +26,14 @@ private:
     bool m_eventFormatMultiLine;
     bool m_startAtOldestRecord;
 
+
+    std::wstring source;
+    std::wstring eventTime;
+    std::wstring eventChannel;
+    std::wstring eventLevel;
+    UINT16 eventId;
+    std::wstring eventMessage;
+
     //
     // Signaled by destructor to request the spawned thread to stop.
     //
