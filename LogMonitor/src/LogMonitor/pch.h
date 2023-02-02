@@ -45,6 +45,7 @@
 #include "shlwapi.h"
 #include <io.h> 
 #include <fcntl.h>
+#include <boost/algorithm/string.hpp>
 #include "Utility.h"
 #include "Parser/ConfigFileParser.h"
 #include "Parser/LoggerSettings.h"

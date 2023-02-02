@@ -414,5 +414,5 @@ typedef struct _LoggerSettings
 {
     std::vector<std::shared_ptr<LogSource> > Sources;
     std::wstring LogFormat;
-    std::wstring LineLogformat;
+    std::wstring LineLogformat = L"XML";
 } LoggerSettings;

@@ -192,7 +192,7 @@ ReadLogConfigObject(
             {
                 Config.LogFormat = std::wstring(Parser.ParseStringValue());
             }
-            else if (_wcsnicmp(key.c_str(), JSON_TAG_LINE_LOG_FORMAT, _countof(JSON_TAG_LINE_LOG_FORMAT)) == 0 && Config.LogFormat == L"Line")
+            else if ((_wcsnicmp(key.c_str(), JSON_TAG_LINE_LOG_FORMAT, _countof(JSON_TAG_LINE_LOG_FORMAT)) == 0) && boost::iequals(Config.LogFormat, L"line"))
             {
                 Config.LineLogformat = std::wstring(Parser.ParseStringValue());
             }
