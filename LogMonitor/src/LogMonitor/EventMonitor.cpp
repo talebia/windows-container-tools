@@ -27,11 +27,13 @@ using namespace std;
 EventMonitor::EventMonitor(
     _In_ const std::vector<EventLogChannel>& EventChannels,
     _In_ bool EventFormatMultiLine,
-    _In_ bool StartAtOldestRecord
+    _In_ bool StartAtOldestRecord,
+    _In_ LoggerSettings& settings
     ) :
     m_eventChannels(EventChannels),
     m_eventFormatMultiLine(EventFormatMultiLine),
-    m_startAtOldestRecord(StartAtOldestRecord)
+    m_startAtOldestRecord(StartAtOldestRecord),
+    m_settings(settings)
 {
     m_stopEvent = NULL;
     m_eventMonitorThread = NULL;
@@ -559,28 +561,24 @@ EventMonitor::PrintEvent(
                 eventId = eventId;
                 eventMessage = (LPWSTR)(&m_eventMessageBuffer[0]);
 
+                std::wstring formattedEvent;
                 //check log format as specified in log file
-                LoggerSettings settings;
-                std::wstring logFormat = settings.LogFormat;
+                std::wstring logFormat = m_settings.LogFormat;
 
-                //if format is JSON,
-
-
-                //if format is XML
-
-
-                //if format is line
+                if (boost::iequals(logFormat, L"JSON"))
+                {
+                    //call the JSON format function
+                    formattedEvent = XMLFormattedEvent();
+                }
+                else if (boost::iequals(logFormat, L"Line")) {
+                    //call the line format function
+                    formattedEvent = XMLFormattedEvent();
+                }
+                else {
+                    //call the XML format function
+                    formattedEvent = XMLFormattedEvent();
+                }
                 
-
-                std::wstring formattedEvent = Utility::FormatString(
-                    L"<Source>EventLog</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
-                    Utility::FileTimeToString(fileTimeCreated).c_str(),
-                    channelName.c_str(),
-                    c_LevelToString[static_cast<UINT8>(level)].c_str(),
-                    eventId,
-                    (LPWSTR)(&m_eventMessageBuffer[0])
-                );
-
                 //
                 // If the multi-line option is disabled, remove all new lines from the output.
                 //
@@ -739,4 +737,58 @@ Exit:
     {
         EvtClose(channelConfig);
     }
+}
+
+/// <summary>
+/// XML Formatted Event
+/// </summary>
+std::wstring EventMonitor::XMLFormattedEvent(){
+
+    std::wstring formattedEvent = Utility::FormatString(
+        L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
+        source,
+        eventTime,
+        eventChannel,
+        eventLevel,
+        eventId,
+        eventMessage
+    );
+
+    return formattedEvent;
+}
+
+/// <summary>
+/// JSON Formatted Event
+/// </summary>
+std::wstring EventMonitor::LineFormattedEvent() {
+
+    std::wstring formattedEvent = Utility::FormatString(
+        L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
+        &source,
+        eventTime,
+        eventChannel,
+        eventLevel,
+        eventId,
+        eventMessage
+    );
+
+    return formattedEvent;
+}
+
+/// <summary>
+/// Line Formatted Event
+/// </summary>
+std::wstring EventMonitor::JSONFormattedEvent() {
+
+    std::wstring formattedEvent = Utility::FormatString(
+        L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
+        &source,
+        eventTime,
+        eventChannel,
+        eventLevel,
+        eventId,
+        eventMessage
+    );
+
+    return formattedEvent;
 }

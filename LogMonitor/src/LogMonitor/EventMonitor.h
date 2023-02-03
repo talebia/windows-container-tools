@@ -13,7 +13,8 @@ public:
     EventMonitor(
         _In_ const std::vector<EventLogChannel>& eventChannels,
         _In_ bool EventFormatMultiLine,
-        _In_ bool StartAtOldestRecord
+        _In_ bool StartAtOldestRecord,
+        _In_ LoggerSettings& settings
         );
 
     ~EventMonitor();
@@ -25,6 +26,7 @@ private:
     const std::vector<EventLogChannel> m_eventChannels;
     bool m_eventFormatMultiLine;
     bool m_startAtOldestRecord;
+    LoggerSettings& m_settings;
 
 
     std::wstring source;
@@ -67,4 +69,10 @@ private:
     void EnableEventLogChannels();
 
     static void EnableEventLogChannel(_In_ LPCWSTR ChannelPath);
+
+    std::wstring XMLFormattedEvent();
+
+    std::wstring LineFormattedEvent();
+
+    std::wstring JSONFormattedEvent();
 };
