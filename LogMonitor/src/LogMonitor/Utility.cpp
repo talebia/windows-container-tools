@@ -4,6 +4,7 @@
 //
 
 #include "pch.h"
+#include <set>
 
 using namespace std;
 
@@ -245,3 +246,104 @@ std::wstring Utility::ReplaceAll(_In_ std::wstring Str, _In_ const std::wstring&
     return Str;
 }
 
+
+///
+/// helper function to "sanitize" a string to be valid JSON
+/// i.e. escape ", \r, \n and \ within a string
+/// to \", \\r, \\n and \\ respectively
+///
+void Utility::SanitizeJson(_Inout_ std::wstring& str)
+{
+    size_t i = 0;
+    while (i < str.size()) {
+        auto sub = str.substr(i, 1);
+        if (sub == L"\"") {
+            if ((i > 0 && str.substr(i - 1, 1) != L"\\")
+                || i == 0)
+            {
+                str.replace(i, 1, L"\\\"");
+                i++;
+            }
+        }
+        else if (sub == L"\\") {
+            if ((i < str.size() - 1 && str.substr(i + 1, 1) != L"\\")
+                || i == str.size() - 1)
+            {
+                str.replace(i, 1, L"\\\\");
+                i++;
+            }
+            else {
+                i += 2;
+            }
+        }
+        else if (sub == L"\n") {
+            if ((i > 0 && str.substr(i - 1, 1) != L"\\")
+                || i == 0)
+            {
+                str.replace(i, 1, L"\\n");
+                i++;
+            }
+        }
+        else if (sub == L"\r") {
+            if ((i > 0 && str.substr(i - 1, 1) != L"\\")
+                || i == 0)
+            {
+                str.replace(i, 1, L"\\r");
+                i++;
+            }
+        }
+        i++;
+    }
+}
+
+/// <summary>
+/// Convert wstring to string
+/// </summary>
+/// <param name="wstr">wstring to be converted to string</param>
+std::string Utility::WStringToStringConversion(_In_ const std::wstring& wstr)
+{
+    std::string str;
+    std::size_t size;
+    str.resize(wstr.length());
+
+    wcstombs_s(&size, &str[0], str.size() + 1, wstr.c_str(), wstr.size());
+
+    return str;
+}
+
+/// <summary>
+/// Comparing wstrings with ignoring the case
+/// </summary>
+/// <param name="stringA"></param>
+/// <param name="stringB"></param>
+/// <returns></returns>
+bool Utility::CompareWStrings(wstring stringA, wstring stringB)
+{
+    return stringA.size() == stringB.size()
+        && equal(stringA.cbegin(), stringA.cend(), stringB.cbegin(),
+            [](wstring::value_type l1, wstring::value_type r1)
+            { return towupper(l1) == towupper(r1); });
+}
+
+std::wstring Utility::SanitizeLineLogFormat(_In_ std::wstring str)
+{
+    size_t i = 0, j = 1, ind = 0;
+    while (i < str.size()) {
+        auto sub = str.substr(i, j);
+        auto sub_length = sub.size();
+        if (sub[0] != '%' && sub[sub_length -1] != '%') {
+            j++, i++;
+        } else if (sub[0] == '%' && sub[sub_length - 1] == '%') {
+
+            //substring found
+            auto subString = L"\"+" + sub.substr(1, sub_length - 2) + L"+L\"";
+            str.replace(i, j, subString);
+
+            i = i + subString.length(), j = 1;
+        } else {
+            j++;
+        }
+    }
+
+    return str;
+}

@@ -17,7 +17,9 @@ public:
 
     EtwMonitor(
         _In_ const std::vector<ETWProvider>& Providers,
-        _In_ bool EventFormatMultiLine
+        _In_ bool EventFormatMultiLine,
+        _In_ std::wstring LogFormat,
+        _In_ std::wstring ETWLineLogFormat
     );
 
     ~EtwMonitor();
@@ -28,6 +30,8 @@ private:
     std::vector<ETWProvider> m_providersConfig;
     bool m_eventFormatMultiLine;
     TRACEHANDLE m_startTraceHandle;
+    std::wstring m_logFormat;
+    std::wstring m_etwLineLogFormat;
 
     //
     // Vectors used to store an EVENT_TRACE_PROPERTIES object.

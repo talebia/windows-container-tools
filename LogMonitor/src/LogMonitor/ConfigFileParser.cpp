@@ -192,10 +192,6 @@ ReadLogConfigObject(
             {
                 Config.LogFormat = std::wstring(Parser.ParseStringValue());
             }
-            else if ((_wcsnicmp(key.c_str(), JSON_TAG_LINE_LOG_FORMAT, _countof(JSON_TAG_LINE_LOG_FORMAT)) == 0) && boost::iequals(Config.LogFormat, L"line"))
-            {
-                Config.LineLogformat = std::wstring(Parser.ParseStringValue());
-            }
             else
             {
                 logWriter.TraceWarning(Utility::FormatString(L"Error parsing configuration file. 'Unknow key %ws in the configuration file.", key.c_str()).c_str());
@@ -314,9 +310,12 @@ ReadSourceAttributes(
             // These attributes are string type
             // * directory
             // * filter
+            // * logFormat
+            // * lineLogformat
             //
             else if (_wcsnicmp(key.c_str(), JSON_TAG_DIRECTORY, _countof(JSON_TAG_DIRECTORY)) == 0
-                || _wcsnicmp(key.c_str(), JSON_TAG_FILTER, _countof(JSON_TAG_FILTER)) == 0)
+                || _wcsnicmp(key.c_str(), JSON_TAG_FILTER, _countof(JSON_TAG_FILTER)) == 0
+                || _wcsnicmp(key.c_str(), JSON_TAG_LINE_LOG_FORMAT, _countof(JSON_TAG_LINE_LOG_FORMAT)) == 0)
             {
                 Attributes[key] = new std::wstring(Parser.ParseStringValue());
             }
@@ -657,6 +656,8 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
                 std::wprintf(L"\t\t\tLevel: %d\n", (int)channel.Level);
                 std::wprintf(L"\n");
             }
+            std::wprintf(L"\t\tlogFormat: %ls\n", Config.LogFormat.c_str());
+            std::wprintf(L"\t\tlineLogformat: %ls\n", sourceEventLog->LineLogFormat.c_str());
             std::wprintf(L"\n");
 
             break;
@@ -691,6 +692,8 @@ void _PrintSettings(_Out_ LoggerSettings& Config)
                 std::wprintf(L"\t\t\tKeywords: %llx\n", provider.Keywords);
                 std::wprintf(L"\n");
             }
+            std::wprintf(L"\t\tlogFormat: %ls\n", Config.LogFormat.c_str());
+            std::wprintf(L"\t\tlineLogformat: %ls\n", sourceETW->LineLogFormat.c_str());
             std::wprintf(L"\n");
 
             break;

@@ -84,6 +84,9 @@ void StartMonitors(_In_ LoggerSettings& settings)
     bool eventMonMultiLine;
     bool eventMonStartAtOldestRecord;
     bool etwMonMultiLine;
+    std::wstring logFormat = settings.LogFormat;;
+    std::wstring eventLineLogFormat;
+    std::wstring etwLineLogFormat;
 
     for (auto source : settings.Sources)
     {
@@ -101,6 +104,7 @@ void StartMonitors(_In_ LoggerSettings& settings)
 
                 eventMonMultiLine = sourceEventLog->EventFormatMultiLine;
                 eventMonStartAtOldestRecord = sourceEventLog->StartAtOldestRecord;
+                eventLineLogFormat = sourceEventLog->LineLogFormat;
 
                 break;
             }
@@ -150,6 +154,7 @@ void StartMonitors(_In_ LoggerSettings& settings)
                 }
 
                 etwMonMultiLine = sourceETW->EventFormatMultiLine;
+                etwLineLogFormat = sourceETW->LineLogFormat;
 
                 break;
             }
@@ -160,7 +165,7 @@ void StartMonitors(_In_ LoggerSettings& settings)
     {
         try
         {
-            g_eventMon = make_unique<EventMonitor>(eventChannels, eventMonMultiLine, eventMonStartAtOldestRecord, settings);
+            g_eventMon = make_unique<EventMonitor>(eventChannels, eventMonMultiLine, eventMonStartAtOldestRecord, logFormat, eventLineLogFormat);
         }
         catch (std::exception& ex)
         {
@@ -185,7 +190,7 @@ void StartMonitors(_In_ LoggerSettings& settings)
     {
         try
         {
-            g_etwMon = make_unique<EtwMonitor>(etwProviders, etwMonMultiLine);
+            g_etwMon = make_unique<EtwMonitor>(etwProviders, etwMonMultiLine, logFormat, etwLineLogFormat);
         }
         catch (...)
         {

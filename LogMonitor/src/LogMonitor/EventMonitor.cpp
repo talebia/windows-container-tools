@@ -4,6 +4,9 @@
 //
 
 #include "pch.h"
+#include <iomanip> // -> std::quoted
+#include <iostream>
+#include <sstream>
 
 using namespace std;
 
@@ -28,12 +31,14 @@ EventMonitor::EventMonitor(
     _In_ const std::vector<EventLogChannel>& EventChannels,
     _In_ bool EventFormatMultiLine,
     _In_ bool StartAtOldestRecord,
-    _In_ LoggerSettings& settings
+    _In_ std::wstring LogFormat,
+    _In_ std::wstring EventLineLogFormat
     ) :
     m_eventChannels(EventChannels),
     m_eventFormatMultiLine(EventFormatMultiLine),
     m_startAtOldestRecord(StartAtOldestRecord),
-    m_settings(settings)
+    m_logFormat(LogFormat),
+    m_eventLineLogFormat(EventLineLogFormat)
 {
     m_stopEvent = NULL;
     m_eventMonitorThread = NULL;
@@ -555,27 +560,19 @@ EventMonitor::PrintEvent(
             if (status == ERROR_SUCCESS)
             {
                 source = L"EventLog";
-                eventTime = Utility::FileTimeToString(fileTimeCreated).c_str();
-                eventChannel = channelName.c_str();
-                eventLevel = c_LevelToString[static_cast<UINT8>(level)].c_str();
+                eventTime = Utility::FileTimeToString(fileTimeCreated);
+                eventChannel = channelName;
+                eventLevel = c_LevelToString[static_cast<UINT8>(level)];
                 eventId = eventId;
                 eventMessage = (LPWSTR)(&m_eventMessageBuffer[0]);
 
                 std::wstring formattedEvent;
-                //check log format as specified in log file
-                std::wstring logFormat = m_settings.LogFormat;
-
-                if (boost::iequals(logFormat, L"JSON"))
+                if (Utility::CompareWStrings(m_logFormat, L"JSON"))
                 {
-                    //call the JSON format function
-                    formattedEvent = XMLFormattedEvent();
-                }
-                else if (boost::iequals(logFormat, L"Line")) {
-                    //call the line format function
-                    formattedEvent = XMLFormattedEvent();
-                }
-                else {
-                    //call the XML format function
+                    formattedEvent = JSONFormattedEvent();
+                } else if (Utility::CompareWStrings(m_logFormat, L"Line")) {
+                    formattedEvent = LineFormattedEvent();
+                } else {
                     formattedEvent = XMLFormattedEvent();
                 }
                 
@@ -742,34 +739,17 @@ Exit:
 /// <summary>
 /// XML Formatted Event
 /// </summary>
-std::wstring EventMonitor::XMLFormattedEvent(){
-
+std::wstring EventMonitor::XMLFormattedEvent()
+{
+    auto logFmt = L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>";
     std::wstring formattedEvent = Utility::FormatString(
-        L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
-        source,
-        eventTime,
-        eventChannel,
-        eventLevel,
+        logFmt,
+        source.c_str(),
+        eventTime.c_str(),
+        eventChannel.c_str(),
+        eventLevel.c_str(),
         eventId,
-        eventMessage
-    );
-
-    return formattedEvent;
-}
-
-/// <summary>
-/// JSON Formatted Event
-/// </summary>
-std::wstring EventMonitor::LineFormattedEvent() {
-
-    std::wstring formattedEvent = Utility::FormatString(
-        L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
-        &source,
-        eventTime,
-        eventChannel,
-        eventLevel,
-        eventId,
-        eventMessage
+        eventMessage.c_str()
     );
 
     return formattedEvent;
@@ -778,17 +758,31 @@ std::wstring EventMonitor::LineFormattedEvent() {
 /// <summary>
 /// Line Formatted Event
 /// </summary>
-std::wstring EventMonitor::JSONFormattedEvent() {
+std::wstring EventMonitor::LineFormattedEvent() 
+{
+    std::wstring formattedEvent = Utility::SanitizeLineLogFormat(m_eventLineLogFormat).c_str();
+    //std::wstring fE = L"[" + eventTime + L"] [" + eventLevel + L"] " + eventMessage + L"";
+
+    return formattedEvent;
+}
+
+/// <summary>
+/// JSON Formatted Event
+/// </summary>
+std::wstring EventMonitor::JSONFormattedEvent() 
+{
+    auto logFmt = L"{\"Source\": \"EventLog\",\"LogEntry\": {\"Time\": \"%s\",\"Channel\": \"%s\",\"Level\": \"%s\",\"EventId\": %u,\"Message\": \"%s\"}}";;
+    // sanitize message
+    std::wstring msg(m_eventMessageBuffer.begin(), m_eventMessageBuffer.end());
+    Utility::SanitizeJson(msg);
 
     std::wstring formattedEvent = Utility::FormatString(
-        L"<Source>%s</Source><Time>%s</Time><LogEntry><Channel>%s</Channel><Level>%s</Level><EventId>%u</EventId><Message>%s</Message></LogEntry>",
-        &source,
-        eventTime,
-        eventChannel,
-        eventLevel,
+        logFmt,
+        eventTime.c_str(),
+        eventChannel.c_str(),
+        eventLevel.c_str(),
         eventId,
-        eventMessage
-    );
+        eventMessage.c_str());
 
     return formattedEvent;
 }

@@ -30,9 +30,13 @@ static const std::wstring g_sessionName = L"Log Monitor ETW Session";
 
 EtwMonitor::EtwMonitor(
     _In_ const std::vector<ETWProvider>& Providers,
-    _In_ bool EventFormatMultiLine
+    _In_ bool EventFormatMultiLine,
+    _In_ std::wstring LogFormat,
+    _In_ std::wstring ETWLineLogFormat
     ) :
-    m_eventFormatMultiLine(EventFormatMultiLine)
+    m_eventFormatMultiLine(EventFormatMultiLine),
+    m_logFormat(LogFormat),
+    m_etwLineLogFormat(ETWLineLogFormat)
 {
     //
     // This is set as 'true' to stop processing events.

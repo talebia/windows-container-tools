@@ -14,7 +14,8 @@ public:
         _In_ const std::vector<EventLogChannel>& eventChannels,
         _In_ bool EventFormatMultiLine,
         _In_ bool StartAtOldestRecord,
-        _In_ LoggerSettings& settings
+        _In_ std::wstring LogFormat,
+        _In_ std::wstring EventLineLogFormat
         );
 
     ~EventMonitor();
@@ -26,7 +27,8 @@ private:
     const std::vector<EventLogChannel> m_eventChannels;
     bool m_eventFormatMultiLine;
     bool m_startAtOldestRecord;
-    LoggerSettings& m_settings;
+    std::wstring m_logFormat;
+    std::wstring m_eventLineLogFormat;
 
 
     std::wstring source;

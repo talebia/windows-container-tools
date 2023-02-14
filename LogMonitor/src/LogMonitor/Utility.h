@@ -44,4 +44,19 @@ public:
         _In_ const std::wstring& From,
         _In_ const std::wstring& To
     );
+
+    static void SanitizeJson(_Inout_ std::wstring& str);
+
+    static std::string WStringToStringConversion(
+        _In_ const std::wstring& wstr
+    );
+
+    static bool CompareWStrings(
+        _In_ std::wstring stringA, 
+        _In_ std::wstring stringB
+    );
+
+    static std::wstring SanitizeLineLogFormat(
+        _In_ std::wstring str
+    );
 };

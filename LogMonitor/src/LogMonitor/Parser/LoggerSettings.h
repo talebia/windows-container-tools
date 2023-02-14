@@ -9,6 +9,10 @@
 
 #define JSON_TAG_LOG_CONFIG L"LogConfig"
 #define JSON_TAG_SOURCES L"sources"
+
+///
+/// Log formatting attributes
+/// 
 #define JSON_TAG_LOG_FORMAT L"logFormat"
 #define JSON_TAG_LINE_LOG_FORMAT L"lineLogformat"
 
@@ -145,6 +149,13 @@ enum class LogSourceType
     ETW
 };
 
+enum class LogSourceTypeFormat
+{
+    XML = 0,
+    JSON,
+    Line
+};
+
 ///
 /// String names of the LogSourceType enum, used to parse the config file
 ///
@@ -205,6 +216,7 @@ public:
     std::vector<EventLogChannel> Channels;
     bool EventFormatMultiLine = true;
     bool StartAtOldestRecord = false;
+    std::wstring LineLogFormat;
 
     static bool Unwrap(
         _In_ AttributesMap& Attributes,
@@ -242,6 +254,15 @@ public:
             && Attributes[JSON_TAG_START_AT_OLDEST_RECORD] != nullptr)
         {
             NewSource.StartAtOldestRecord = *(bool*)Attributes[JSON_TAG_START_AT_OLDEST_RECORD];
+        }
+
+        //
+        // Line Log Format is an optional value
+        //
+        if (Attributes.find(JSON_TAG_LINE_LOG_FORMAT) != Attributes.end()
+            && Attributes[JSON_TAG_LINE_LOG_FORMAT] != nullptr)
+        {
+            NewSource.LineLogFormat = *(std::wstring*)Attributes[JSON_TAG_LINE_LOG_FORMAT];
         }
 
         return true;
@@ -372,6 +393,7 @@ class SourceETW : LogSource
 public:
     std::vector<ETWProvider> Providers;
     bool EventFormatMultiLine = true;
+    std::wstring LineLogFormat;
 
     static bool Unwrap(
         _In_ AttributesMap& Attributes,
@@ -402,6 +424,15 @@ public:
             NewSource.EventFormatMultiLine = *(bool*)Attributes[JSON_TAG_FORMAT_MULTILINE];
         }
 
+        //
+        // Line Log Format is an optional value
+        //
+        if (Attributes.find(JSON_TAG_LINE_LOG_FORMAT) != Attributes.end()
+            && Attributes[JSON_TAG_LINE_LOG_FORMAT] != nullptr)
+        {
+            NewSource.LineLogFormat = *(std::wstring*)Attributes[JSON_TAG_LINE_LOG_FORMAT];
+        }
+
 
         return true;
     }
@@ -414,5 +445,4 @@ typedef struct _LoggerSettings
 {
     std::vector<std::shared_ptr<LogSource> > Sources;
     std::wstring LogFormat = L"XML";
-    std::wstring LineLogformat;
 } LoggerSettings;
