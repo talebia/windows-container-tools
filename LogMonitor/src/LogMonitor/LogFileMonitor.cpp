@@ -1673,7 +1673,7 @@ LogFileMonitor::ReadLogFile(
 
 void LogFileMonitor::WriteToConsole( _In_ std::wstring Message, _In_ std::wstring FileName) {
     //auto logFmt = L"{\"Source\":\"File\",\"LogEntry\":{\"Logline\":\"%s\",\"FileName\":\"%s\"},\"SchemaVersion\":\"1.0.0\"}";
-    auto logFmt = L"\"Logline\":\"%s\"";
+    auto logFmt = L"%s";
     size_t start = 0;
     size_t i = 0;
     wstring msg;
