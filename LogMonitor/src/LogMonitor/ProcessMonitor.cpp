@@ -236,8 +236,8 @@ size_t bufferCopyAndSanitize(char* dst, char* src)
 size_t formatProcessLog(char* chBuf)
 {
     // {"Source":"Process","LogEntry":{"Logline":"<chBuf>"},"SchemaVersion":"1.0.0"}
-    const char* prefix = "{\"Source\":\"Process\",\"LogEntry\":{\"Logline\":\"";
-    const char* suffix = "\"},\"SchemaVersion\":\"1.0.0\"}\n";
+    const char* prefix = "";
+    const char* suffix = "";
     char chBufCpy[BUFSIZE] = "";
 
     //
@@ -257,7 +257,7 @@ size_t formatProcessLog(char* chBuf)
     // reset the start index
     if ((index + suffixLen) > BUFSIZE - 5) {
         index = BUFSIZE - 5 - suffixLen;
-        suffix = "...\"},\"SchemaVersion\":\"1.0.0\"}\n";
+        suffix = "";
     }
 
     index = bufferCopy(chBuf, const_cast<char*>(suffix), index, index + suffixLen);

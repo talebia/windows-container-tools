@@ -64,7 +64,7 @@ public :
     {
         AcquireSRWLockExclusive(&m_stdoutLock);
 
-        wprintf(L"%s\n", LogMessage.c_str());
+        wprintf(L"%s", LogMessage.c_str());
         FlushStdOut();
 
         ReleaseSRWLockExclusive(&m_stdoutLock);
@@ -76,7 +76,7 @@ public :
     {
         AcquireSRWLockExclusive(&m_stdoutLock);
 
-        wprintf(L"%s\n", LogMessage.c_str());
+        wprintf(L"%s", LogMessage.c_str());
         FlushStdOut();
 
         ReleaseSRWLockExclusive(&m_stdoutLock);

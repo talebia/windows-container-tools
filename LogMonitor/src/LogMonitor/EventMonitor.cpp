@@ -553,18 +553,23 @@ EventMonitor::PrintEvent(
             if (status == ERROR_SUCCESS)
             {
                 // supporting JSON fmt by default
-                auto logFmt = L"{\"Source\": \"EventLog\",\"LogEntry\": {\"Time\": \"%s\",\"Channel\": \"%s\",\"Level\": \"%s\",\"EventId\": %u,\"Message\": \"%s\"}}";;
+                //auto logFmt = L"{\"Source\": \"EventLog\",\"LogEntry\": {\"Time\": \"%s\",\"Channel\": \"%s\",\"Level\": \"%s\",\"EventId\": %u,\"Message\": \"%s\"}}";;
+                auto logFmt = L"%s %s";;
 
                 // sanitize message
                 std::wstring msg(m_eventMessageBuffer.begin(), m_eventMessageBuffer.end());
-                Utility::SanitizeJson(msg);
+                //Utility::SanitizeJson(msg);
 
+                //std::wstring formattedEvent = Utility::FormatString(
+                //    logFmt,
+                //    Utility::FileTimeToString(fileTimeCreated).c_str(),
+                //    channelName.c_str(),
+                //    c_LevelToString[static_cast<UINT8>(level)].c_str(),
+                //    eventId,
+                //    msg.c_str());
                 std::wstring formattedEvent = Utility::FormatString(
                     logFmt,
                     Utility::FileTimeToString(fileTimeCreated).c_str(),
-                    channelName.c_str(),
-                    c_LevelToString[static_cast<UINT8>(level)].c_str(),
-                    eventId,
                     msg.c_str());
 
                 logWriter.WriteConsoleLog(formattedEvent);

@@ -783,6 +783,25 @@ std::wstring etwJsonFormat(EtwLogEntry* pLogEntry)
 
 
 ///
+/// Format ETW eventlog into a Simple output
+///
+std::wstring etwSimpleFormat(EtwLogEntry* pLogEntry)
+{
+    std::wostringstream oss;
+    bool firstEntry = true;
+    for (auto evtData : pLogEntry->EventData) {
+        oss << (firstEntry ? "" : " ");
+        firstEntry = false;
+
+        oss << evtData.second;
+    }
+
+    oss << L"\n";
+
+    return oss.str();
+}
+
+///
 /// Prints the data and metadata of the event.
 ///
 /// \param EventRecord  The event record received by EventRecordCallback
@@ -826,7 +845,8 @@ EtwMonitor::PrintEvent(
             return status;
         }
 
-        std::wstring formattedEvent = etwJsonFormat(pLogEntry);
+        //std::wstring formattedEvent = etwJsonFormat(pLogEntry);
+        std::wstring formattedEvent = etwSimpleFormat(pLogEntry);
         logWriter.WriteConsoleLog(formattedEvent);
     }
     catch(std::bad_alloc&)
