@@ -309,6 +309,23 @@ void Utility::SanitizeJson(_Inout_ std::wstring& str)
     }
 }
 
+/// <summary>
+/// helper function to remove ending \r\n when using custom format
+/// </summary>
+/// <param name="str"></param>
+void Utility::RemoveEndingLineBreak(_Inout_ std::wstring& str)
+{
+    size_t strSize = str.size();
+    if (strSize > 1)
+    {
+        auto ending = str.substr(strSize - 2, 2);
+        if (ending == L"\r\n")
+        {
+            str.replace(strSize - 2, 2, L"");
+        }
+    }
+}
+
 bool Utility::ConfigAttributeExists(AttributesMap& Attributes, std::wstring attributeName)
 {
     auto it = Attributes.find(attributeName);
@@ -406,6 +423,8 @@ std::wstring Utility::FormatEventLineLog(
             j++;
         }
     }
+
+    RemoveEndingLineBreak(customLogFormat);
 
     if(customJsonFormat)
         SanitizeJson(customLogFormat);

@@ -67,6 +67,9 @@ public:
     static void SanitizeJson(
         _Inout_ std::wstring &str);
 
+    static void RemoveEndingLineBreak(
+        _Inout_ std::wstring& str);
+
     static bool ConfigAttributeExists(
         _In_ AttributesMap& Attributes,
         _In_ std::wstring attributeName);
