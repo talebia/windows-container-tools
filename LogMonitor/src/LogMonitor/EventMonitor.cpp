@@ -606,6 +606,8 @@ EventMonitor::PrintEvent(
                     );
                 }
 
+                Utility::RemoveEndingLineBreak(formattedEvent);
+
                 logWriter.WriteConsoleLog(formattedEvent);
             }
         }
