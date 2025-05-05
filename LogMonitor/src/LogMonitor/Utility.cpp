@@ -315,6 +315,9 @@ void Utility::SanitizeJson(_Inout_ std::wstring& str)
 /// <param name="str"></param>
 void Utility::RemoveEndingLineBreak(_Inout_ std::wstring& str)
 {
+    auto realLen = std::wcslen(str.c_str());   // find length up to first L'\0'
+    str.resize(realLen);
+
     size_t strSize = str.size();
     if (strSize > 1)
     {
